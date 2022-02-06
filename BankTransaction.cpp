@@ -186,7 +186,7 @@ void BankTransaction::CreateDummyTable(const char *dbPath="BANK.DB") {
         cout << "DATABASE SUCCESSFULLY OPENED!" << endl;
     }
 
-    sql = "CREATE TABLE BANK_ACCOUNT("  \
+    sql = "CREATE TABLE IF NOT EXISTS BANK_ACCOUNT("  \
         "ACCOUNT_ID INTEGER PRIMARY KEY AUTOINCREMENT," \
         "FIRSTNAME           TEXT    NOT NULL," \
         "LASTNAME            TEXT     NOT NULL," \

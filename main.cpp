@@ -33,8 +33,8 @@ int main()
     string firstName, lastName;
     double balance;
 
-    //bankTransaction.CreateDummyTable("BANK.DB");
-
+    // Create table in BANK.DB file or Database file for sqlite3
+    bankTransaction.CreateDummyTable("BANK.DB");
 
     while (true) {
         choice = MainMenu();
