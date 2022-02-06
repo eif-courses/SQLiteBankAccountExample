@@ -129,7 +129,6 @@ void BankTransaction::CreateAccount(unique_ptr<BankAccount> bankAccount) {
 
 void BankTransaction::CloseAccount(int accountNumber) {
   OpenConnection();
-
   char *zErrMsg = nullptr;
   const char *data = "Callback function called";
   const char *sql = "DELETE FROM BANK_ACCOUNT WHERE ACCOUNT_ID=?";
@@ -163,9 +162,7 @@ void BankTransaction::PrintAllAccounts() {
   OpenConnection();
   char *zErrMsg = nullptr;
   const char *data = "Callback function called";
-
   const char *sql = "SELECT * from BANK_ACCOUNT";
-
   int rc = sqlite3_exec(_connection, sql, Callback, (void *) data, &zErrMsg);
 
   if (rc != SQLITE_OK) {
@@ -178,17 +175,15 @@ void BankTransaction::PrintAllAccounts() {
 }
 
 void BankTransaction::CreateDummyTable(const char *dbPath = "BANK.DB") {
-
+  int rc = OpenConnection(dbPath);
   const char *sql;
   char *zErrMsg = nullptr;
 
-  int rc = OpenConnection(dbPath);
   if (rc) {
-    cerr << "Can't open " << dbPath <<" database!"<< endl;
+    cerr << "Can't open " << dbPath << " database!" << endl;
   } else {
-    cout << "Database" <<dbPath<<"successfully opened!" << endl;
+    cout << "Database" << dbPath << "successfully opened!" << endl;
   }
-
   sql = "CREATE TABLE IF NOT EXISTS BANK_ACCOUNT("  \
         "ACCOUNT_ID INTEGER PRIMARY KEY AUTOINCREMENT," \
         "FIRSTNAME           TEXT    NOT NULL," \
@@ -215,5 +210,3 @@ int BankTransaction::Callback(void *context, int columnCount, char **columnValue
 
   return 0;
 }
-
-

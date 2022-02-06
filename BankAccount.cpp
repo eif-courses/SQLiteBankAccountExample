@@ -4,24 +4,25 @@
 #include "BankAccount.h"
 
 BankAccount::BankAccount(int accountNumber, string firstName, string lastName, double balance)
-        : _accountNumber(accountNumber), _firstName(std::move(firstName)), _lastName(std::move(lastName)), _balance(balance) {}
+    : _accountNumber(accountNumber), _firstName(std::move(firstName)), _lastName(std::move(lastName)),
+      _balance(balance) {}
 
 int BankAccount::GetAccountNumber() const {
-    return _accountNumber;
+  return _accountNumber;
 }
 
 const string &BankAccount::GetFirstName() const {
-    return _firstName;
+  return _firstName;
 }
 
 const string &BankAccount::GetLastName() const {
-    return _lastName;
+  return _lastName;
 }
 
 double BankAccount::GetBalance() const {
-    return _balance;
+  return _balance;
 }
 
 void BankAccount::SetBalance(double balance) {
-    _balance = balance;
+  _balance = balance;
 }
