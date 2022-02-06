@@ -27,7 +27,7 @@ int MainMenu()
 int main()
 {
 
-    BankTransaction bankTransaction{};
+    BankTransaction bankTransaction;
     int choice;
     int accountNumber;
     string firstName, lastName;
@@ -54,7 +54,7 @@ int main()
                     cout << "Invalid account number." << endl;
                     break;
                 }
-                bankTransaction.CreateAccount(BankAccount(accountNumber, firstName, lastName, balance));
+                bankTransaction.CreateAccount(make_unique<BankAccount>(accountNumber, firstName, lastName, balance));
                 break;
             case WITHDRAW:
                 cout << "\nEnter account no, amount to withdraw "<< endl << "? ";
@@ -87,32 +87,5 @@ int main()
                 break;
         }
     }
-
-
-    //db.OpenConnection(dbPath);
-
-    //Database::CreateTable(db); // if exists comment this line
-    // Product product("Bread", "Black bread", 2.52);
-    //Database::Insert(db, product); // Insert product
-
-    // db.CreateDummyTable(dbPath);
-
-    //BankAccount* ba = new BankAccount();
-    //ba->SetFirstName("Markovic");
-    //ba->SetBalance(4521);
-    //ba->SetLastName("Polovic");
-    //ba->SetAccountNumber(31);
-    ////
-    //bankTransaction.CreateAccount(ba);
-
-    //bankTransaction.Deposit(999, 100);
-    //bankTransaction.CloseAccount(1241);
-
-    //bankTransaction.PrintAllAccounts();
-    //BankAccount* baa = bankTransaction.GetAccount(999);
-    //cout << baa->GetBalance();
-    //bankTransaction.Withdraw(999, 123);
-    //cout << baa->GetBalance();
-    //db.CloseConnection();
     return 0;
 }

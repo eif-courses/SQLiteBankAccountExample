@@ -5,24 +5,23 @@
 #ifndef SQLITEBANKACCOUNTEXAMPLE_BANKACCOUNT_H
 #define SQLITEBANKACCOUNTEXAMPLE_BANKACCOUNT_H
 
-
 #include <iostream>
+
 using std::string;
 
-class BankAccount
-{
+class BankAccount {
 public:
-    BankAccount(int, string, string, double);
-
-    void SetAccountNumber(int accountNumber);
-    void SetLastName(string lastName);
-    void SetFirstName(string firstName);
-    void SetBalance(double balance);
+    BankAccount(int accountNumber, string firstName, string lastName, double balance);
 
     int GetAccountNumber() const;
-    string GetFirstName() const;
-    string GetLastName() const;
+
+    const string &GetFirstName() const;
+
+    const string &GetLastName() const;
+
     double GetBalance() const;
+
+    void SetBalance(double balance);
 
 private:
     int _accountNumber;
@@ -30,8 +29,5 @@ private:
     string _lastName;
     double _balance;
 };
-
-
-
 
 #endif //SQLITEBANKACCOUNTEXAMPLE_BANKACCOUNT_H

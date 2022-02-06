@@ -1,286 +1,213 @@
 //
 // Created by Marius on 2/5/2022.
 //
-
-#include "BankTransaction.h"
-#include <cstdlib>
-#include <sstream>
 #include <iostream>
-#include <iomanip>
 #include "BankTransaction.h"
 #include "BankAccount.h"
 
-
-int BankTransaction::OpenConnection(const char* dbPath)
-{
+int BankTransaction::OpenConnection(const char *dbPath = "BANK.DB") {
     return sqlite3_open(dbPath, &_connection);
 }
+
 void BankTransaction::CloseConnection() {
     sqlite3_close(_connection);
 }
 
-// Without Callback working
-BankAccount BankTransaction::GetAccount(int accountNumber){
+// Without Callback
+unique_ptr<BankAccount> BankTransaction::GetAccount(int accountNumber) {
 
-    OpenConnection("BANK.DB");
+    OpenConnection();
+    unique_ptr<BankAccount> bankAccount;
 
-    BankAccount bankAccount(1, "", "", 1.2);
+    const char *sql = "SELECT * FROM BANK_ACCOUNT WHERE ACCOUNT_ID=?";
 
-    sqlite3_stmt* statment;
+    int rc = (sqlite3_prepare_v2(_connection, sql, -1, &_statement, nullptr));
 
-    const char* sql ="SELECT * FROM BANK_ACCOUNT WHERE ACCOUNT_ID=?";
-
-    int rc = (sqlite3_prepare_v2(_connection, sql, -1, &statment, nullptr));
-
-    if (sqlite3_bind_int(statment, 1, accountNumber) != SQLITE_OK) {
-        printf("\nCould not bind integer.\n");
-
+    if (sqlite3_bind_int(_statement, 1, accountNumber) != SQLITE_OK) {
+        Message("\nCould not bind int ACCOUNT_ID in GET_ACCOUNT.\n");
     }
-
-    while ((rc = sqlite3_step(statment)) == SQLITE_ROW) {
-        bankAccount = BankAccount(accountNumber, string(reinterpret_cast<const char*>(sqlite3_column_text(statment, 1))), string(reinterpret_cast<const char*>(sqlite3_column_text(statment, 2))), sqlite3_column_int(statment, 3));
-        printf("ACCOUNT_ID: %s, BALANCE: %d eur\n", sqlite3_column_text(statment, 0), sqlite3_column_int(statment, 3));
+    while ((rc = sqlite3_step(_statement)) == SQLITE_ROW) {
+        bankAccount = make_unique<BankAccount>(accountNumber,
+                                      string(reinterpret_cast<const char *>(sqlite3_column_text(_statement, 1))),
+                                      string(reinterpret_cast<const char *>(sqlite3_column_text(_statement, 2))),
+                                      sqlite3_column_int(_statement, 3));
     }
-
-    sqlite3_finalize(statment);
-
+    sqlite3_finalize(_statement);
     CloseConnection();
-
     return bankAccount;
 }
 
+void BankTransaction::Withdraw(int accountNumber, double amount) {
+    unique_ptr<BankAccount> bankAccount = GetAccount(accountNumber);
 
-void BankTransaction::Withdraw(int accountNumber, double amount)
-{
-    BankAccount bankAccount = GetAccount(accountNumber);
+    if (bankAccount != nullptr) {
+        if (bankAccount->GetBalance() < amount)
+            Message("Cannot withdraw. Try lower amount.");
+        else {
+            bankAccount->SetBalance(bankAccount->GetBalance() - amount);
 
-    if (bankAccount.GetBalance() < amount)
-        Message("Cannot withdraw. Try lower amount.");
-    else {
-        bankAccount.SetBalance(bankAccount.GetBalance() - amount);
+            Deposit(accountNumber,bankAccount->GetBalance()); // TODO you can create other function for Withdraw update Statement
 
-        Deposit(accountNumber, bankAccount.GetBalance()); // TODO you can create other function for Withdraw update Statement
-
-        string text = "Withdraw successfull: -" + to_string(amount) + " eur";
-        Message(text);
-        Message("Your current balance: " + to_string(bankAccount.GetBalance()) + " eur");
+            string text = "Withdraw successfull: -" + to_string(amount) + " eur";
+            Message(text);
+            Message("Your current balance: " + to_string(bankAccount->GetBalance()) + " eur");
+        }
     }
 }
-// WORKING
-void BankTransaction::Deposit(int accountNumber, double amount)
-{
-    OpenConnection("BANK.DB");
 
-    sqlite3_stmt* statment;
-    char* zErrMsg = nullptr;
-    const char* data = "Callback function called";
+void BankTransaction::Deposit(int accountNumber, double amount) {
+    OpenConnection();
 
-    /* Create SQL statement */
-    const char* sql = "UPDATE BANK_ACCOUNT SET BALANCE=? WHERE ACCOUNT_ID=?;";
+    const char *sql = "UPDATE BANK_ACCOUNT SET BALANCE=? WHERE ACCOUNT_ID=?;";
 
-
-    if (sqlite3_prepare_v2(_connection, sql, -1, &statment, nullptr)!= SQLITE_OK) {
-        printf("\nCould not EXECUTE STATMENT.\n");
-    }
-    if (sqlite3_bind_double(
-            statment,
-            1,  // Index of wildcard
-            amount
-    ) != SQLITE_OK) {
-        printf("\nCould not bind double.\n");
-        return;
-    }
-    if (sqlite3_bind_int(
-            statment,
-            2,  // Index of wildcard
-            accountNumber
-    ) != SQLITE_OK) {
-        printf("\nCould not bind double.\n");
+    if (sqlite3_prepare_v2(_connection, sql, -1, &_statement, nullptr) != SQLITE_OK) {
+        Message("\nCould not EXECUTE DEPOSIT STATMENT.\n");
         return;
     }
 
-    if (sqlite3_step(statment) != SQLITE_DONE) {
-        printf("\nCould not step (execute) stmt.\n");
+    if (sqlite3_bind_double(_statement, 1, amount) != SQLITE_OK) {
+        Message("\nCould not bind double BALANCE in DEPOSIT.\n");
         return;
     }
-
-    sqlite3_finalize(statment);
-    printf("\n");
-    //select_stmt("select * from foo");
+    if (sqlite3_bind_int(_statement, 2, accountNumber) != SQLITE_OK) {
+        Message("\nCould not bind int ACCOUNT_ID in DEPOSIT.\n");
+        return;
+    }
+    if (sqlite3_step(_statement) != SQLITE_DONE) {
+        Message("\nCould not step (execute) stmt. DEPOSIT!\n");
+        return;
+    }
+    sqlite3_finalize(_statement);
 
     CloseConnection();
-
 }
 
+void BankTransaction::CreateAccount(unique_ptr<BankAccount> bankAccount) {
+    OpenConnection();
 
-// WORKING
-void BankTransaction::CreateAccount(BankAccount bankAccount)
-{
-    OpenConnection("BANK.DB");
-    sqlite3_stmt* statment;
+    const char *sql = "INSERT INTO BANK_ACCOUNT VALUES (?,?,?,?)";
 
-    const char* sql = "INSERT INTO BANK_ACCOUNT VALUES (?,?,?,?)";
-
-    if (sqlite3_prepare_v2(_connection, sql, -1, &statment, nullptr) != SQLITE_OK) {
-        printf("\nCould NOT EXECUTE STATEMENT!.\n");
-        return;
-    }
-    if (sqlite3_bind_int(statment, 1, bankAccount.GetAccountNumber()) != SQLITE_OK) {
-        printf("\nCould not bind int.\n");
+    if (sqlite3_prepare_v2(_connection, sql, -1, &_statement, nullptr) != SQLITE_OK) {
+        Message("\nCould NOT EXECUTE STATEMENT! CREATE_ACCOUNT\n");
         return;
     }
 
-    const char* name = bankAccount.GetFirstName().c_str();
-
-    cout << "------------------ACCOUNT NAME----------------\n" << name << "\n---------------------------------\n";
-
-
-    if (sqlite3_bind_text(
-            statment,
-            2,  // Index of wildcard
-            name, // Data as -> const * char
-            bankAccount.GetFirstName().length(), // Data length
-            SQLITE_STATIC
-    ) != SQLITE_OK) {
-        printf("\nCould not bind double.\n");
-        return;
-    }
-    if (sqlite3_bind_text(
-            statment,
-            3,  // Index of wildcard
-            bankAccount.GetLastName().c_str(), // Data as -> const * char
-            bankAccount.GetLastName().length(), // Data length
-            SQLITE_STATIC
-    ) != SQLITE_OK) {
-        printf("\nCould not bind double.\n");
-        return;
-    }
-    if (sqlite3_bind_double(
-            statment,
-            4,  // Index of wildcard
-            bankAccount.GetBalance()
-    ) != SQLITE_OK) {
-        printf("\nCould not bind int.\n");
+    if (sqlite3_bind_int(_statement, 1, bankAccount->GetAccountNumber()) != SQLITE_OK) {
+        Message("\nCould not bind int ACCOUNT_ID in CREATE_ACCOUNT.\n");
         return;
     }
 
-    if (sqlite3_step(statment) != SQLITE_DONE) {
-        printf("\nCould not step (execute) stmt.\n");
+    if (sqlite3_bind_text(_statement, 2, bankAccount->GetFirstName().c_str(), (int) bankAccount->GetFirstName().length(),
+                          SQLITE_STATIC) != SQLITE_OK) {
+        Message("\nCould not bind text FIRST_NAME in CREATE_ACCOUNT.\n");
         return;
     }
 
-    printf("\n");
-    sqlite3_finalize(statment);
+    if (sqlite3_bind_text(_statement, 3, bankAccount->GetLastName().c_str(), (int) bankAccount->GetLastName().length(),
+                          SQLITE_STATIC) != SQLITE_OK) {
+        Message("\nCould not bind text LAST_NAME in CREATE_ACCOUNT.\n");
+        return;
+    }
+
+    if (sqlite3_bind_double(_statement, 4, bankAccount->GetBalance()) != SQLITE_OK) {
+        Message("\nCould not bind double BALANCE in CREATE_ACCOUNT.\n");
+        return;
+    }
+
+    if (sqlite3_step(_statement) != SQLITE_DONE) {
+        Message("\nCould not step (execute) stmt. CREATE_ACCOUNT!\n");
+        return;
+    }
+
+    sqlite3_finalize(_statement);
     CloseConnection();
-
-
 }
 
+void BankTransaction::CloseAccount(int accountNumber) {
+    OpenConnection();
 
-// WORKING
-void BankTransaction::CloseAccount(int accountNumber)
-{
+    char *zErrMsg = nullptr;
+    const char *data = "Callback function called";
+    const char *sql = "DELETE FROM BANK_ACCOUNT WHERE ACCOUNT_ID=?";
 
-    OpenConnection("BANK.DB");
-    const char* sql = "DELETE FROM BANK_ACCOUNT WHERE ACCOUNT_ID=?";
-    sqlite3_stmt* statment;
-
-    if (sqlite3_prepare_v2(_connection, sql, -1, &statment, nullptr) != SQLITE_OK) {
-        printf("\nCANT OPEN CONNECTION\n");
-    }
-
-    if (sqlite3_bind_int(statment, 1, accountNumber) != SQLITE_OK) {
-        printf("\nCould not bind integer.\n");
+    if (sqlite3_prepare_v2(_connection, sql, -1, &_statement, nullptr) != SQLITE_OK) {
+        Message("\nCould NOT EXECUTE STATEMENT! CLOSE_ACCOUNT\n");
         return;
     }
 
-    char* zErrMsg = nullptr;
-    const char* data = "Callback function called";
-
-
-    /* Execute SQL statement */
-    int rc = sqlite3_exec(_connection, sql, Callback, (void*)data, &zErrMsg);
-
-
-    if (sqlite3_step(statment) != SQLITE_DONE) {
-        printf("\nCould not step (execute) stmt.\n");
+    if (sqlite3_bind_int(_statement, 1, accountNumber) != SQLITE_OK) {
+        Message("\nCould not bind int ACCOUNT_ID in CLOSE_ACCOUNT.\n");
         return;
     }
+    int rc = sqlite3_exec(_connection, sql, Callback, (void *) data, &zErrMsg);
 
+    if (sqlite3_step(_statement) != SQLITE_DONE) {
+        Message("\nCould not step (execute) stmt. CLOSE_ACCOUNT!\n");
+        return;
+    }
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
-    }
-    else {
+    } else {
         fprintf(stdout, "Operation done successfully\n");
     }
-    sqlite3_finalize(statment);
+    sqlite3_finalize(_statement);
     CloseConnection();
-
 }
 
-void BankTransaction::Message(string msg)
-{
-    cout << msg << endl;
-}
-void BankTransaction::PrintAllAccounts()
-{
-    OpenConnection("BANK.DB");
-    char* zErrMsg = nullptr;
-    const char* data = "Callback function called";
+void BankTransaction::PrintAllAccounts() {
+    OpenConnection();
+    char *zErrMsg = nullptr;
+    const char *data = "Callback function called";
 
-    /* Create SQL statement */
-    const char* sql = "SELECT * from BANK_ACCOUNT";
+    const char *sql = "SELECT * from BANK_ACCOUNT";
 
-    /* Execute SQL statement */
-    int rc = sqlite3_exec(_connection, sql, Callback, (void*)data, &zErrMsg);
+    int rc = sqlite3_exec(_connection, sql, Callback, (void *) data, &zErrMsg);
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
-    }
-    else {
+    } else {
         fprintf(stdout, "Operation done successfully\n");
     }
     CloseConnection();
 }
 
-void BankTransaction::CreateDummyTable(const char* dbPath) {
+void BankTransaction::CreateDummyTable(const char *dbPath="BANK.DB") {
 
-    const char* sql;
-    char* zErrMsg = nullptr;
+    const char *sql;
+    char *zErrMsg = nullptr;
 
     /* Open database */
     int rc = OpenConnection(dbPath);
     if (rc) {
         cout << "CAN'T OPEN DATABASE!" << endl;
-    }
-    else {
+    } else {
         cout << "DATABASE SUCCESSFULLY OPENED!" << endl;
     }
 
-    /* Create SQL statement */
     sql = "CREATE TABLE BANK_ACCOUNT("  \
         "ACCOUNT_ID INTEGER PRIMARY KEY AUTOINCREMENT," \
         "FIRSTNAME           TEXT    NOT NULL," \
         "LASTNAME            TEXT     NOT NULL," \
         "BALANCE        REAL );";
 
-    /* Execute SQL statement */
     rc = sqlite3_exec(_connection, sql, Callback, nullptr, &zErrMsg);
 
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
-    }
-    else {
+    } else {
         fprintf(stdout, "Table created successfully\n");
     }
     CloseConnection();
 }
 
+void BankTransaction::Message(const string &msg) {
+    cout << msg << endl;
+}
 
-int BankTransaction::Callback(void* context, int columnCount, char** columnValues, char** columnName) {
+int BankTransaction::Callback(void *context, int columnCount, char **columnValues, char **columnName) {
 
     for (int i = 0; i < columnCount; i++) {
         cout << columnName[i] << " " << columnValues[i] << " ";
@@ -289,3 +216,8 @@ int BankTransaction::Callback(void* context, int columnCount, char** columnValue
 
     return 0;
 }
+
+BankTransaction::~BankTransaction() {
+    sqlite3_close(_connection);
+}
+
